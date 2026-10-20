@@ -618,12 +618,14 @@ export class SubagentRun {
     if (!retryError) return;
     this.pendingProviderRetry = undefined;
     const messages = [...this.agent.state.messages];
-    if (messages.at(-1)?.role !== "assistant") {
+    // A failed provider stream can leave more than one assistant row after a
+    // tool round. Remove the entire failed suffix before continuing. Compaction
+    // can leave a non-assistant tail: there is no suffix to strip and the retry
+    // keeps the existing messages; only an empty transcript cannot be retried.
+    while (messages.at(-1)?.role === "assistant") messages.pop();
+    if (messages.length === 0) {
       throw new Error("Cannot retry a subagent provider stream without its failed assistant message");
     }
-    // A failed provider stream can leave more than one assistant row after a
-    // tool round. Remove the entire failed suffix before continuing.
-    while (messages.at(-1)?.role === "assistant") messages.pop();
     this.agent.state.messages = messages;
     this.providerRetryInProgress = true;
     try {

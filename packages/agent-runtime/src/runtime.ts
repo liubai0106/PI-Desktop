@@ -6409,13 +6409,16 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.pendingProviderRetry = undefined;
 
     const messages = [...this.agent.state.messages];
-    if (messages.at(-1)?.role !== "assistant") {
+    // A failed stream can be represented by more than one trailing assistant
+    // message after a tool round, so remove the whole failed suffix before
+    // continuing; pi-agent-core rejects any assistant-terminated transcript.
+    // Compaction can rewrite the transcript so the tail is no longer the failed
+    // assistant message: there is no suffix to strip and the retry keeps the
+    // existing messages. Only an empty transcript cannot be retried.
+    while (messages.at(-1)?.role === "assistant") messages.pop();
+    if (messages.length === 0) {
       throw new Error("Cannot retry a provider stream without its failed assistant message");
     }
-    // A failed stream can be represented by more than one trailing assistant
-    // message after a tool round. Remove the whole failed suffix before
-    // continuing; pi-agent-core rejects any assistant-terminated transcript.
-    while (messages.at(-1)?.role === "assistant") messages.pop();
     this.setAgentMessages(messages);
 
     this.providerRetryInProgress = true;
